@@ -1,62 +1,54 @@
-const express = require("express");
-const http = require("http");
-const WebSocket = require("ws");
+import express from "express";
+import http from "http";import cors from "cors";
+import { WebSocketServer } from "ws";
+import dotenv from "dotenv";
+
+import connectDB from "./db.js";
+import userRoutes from "./routes/users.js";
+import friendRoutes from "./routes/friends.js";
+dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
 
-// userId -> socket
-const clients = new Map();
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// Routes
+app.use("/users", userRoutes);
+
+app.use("/friends", friendRoutes);
+
+
+const wss = new WebSocketServer({ server });
+
+// In-memory online users
+const clients = new Map(); // userId -> ws
 
 wss.on("connection", (ws) => {
-  console.log("New client connected");
+  console.log("🟢 WS connected");
 
-  ws.on("message", (data) => {
-    const message = JSON.parse(data.toString());
-    console.log("Received:", message);
+  ws.on("message", (msg) => {
+    const data = JSON.parse(msg);
 
-    if (message.type === "REGISTER") {
-      ws.userId = message.userId;
-      clients.set(message.userId, ws);
-      console.log(`User registered: ${message.userId}`);
-    }
-
-    if (message.type === "SEND_DIGIT") {
-      const receiverSocket = clients.get(message.to);
-      if (receiverSocket) {
-        receiverSocket.send(
-          JSON.stringify({
-            type: "NEW_MESSAGE",
-            from: message.from,
-            digit: message.digit,
-          })
-        );
-      }
-    }
-
-    if (message.type === "MESSAGE_READ") {
-      const senderSocket = clients.get(message.to);
-      if (senderSocket) {
-        senderSocket.send(
-          JSON.stringify({
-            type: "MESSAGE_READ",
-            from: message.from,
-          })
-        );
-      }
+    if (data.type === "REGISTER") {
+      clients.set(data.userId, ws);
+      console.log(`✅ User online: ${data.userId}`);
     }
   });
 
   ws.on("close", () => {
-    if (ws.userId) {
-      clients.delete(ws.userId);
-      console.log(`User disconnected: ${ws.userId}`);
+    for (const [key, value] of clients.entries()) {
+      if (value === ws) clients.delete(key);
     }
+    console.log("🔴 WS disconnected");
   });
 });
 
+// Start
+connectDB();
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log("Server running on port", PORT);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
