@@ -42,7 +42,7 @@ wss.on("connection", (ws) => {
 
     console.log("Received WS message:", data);
 
-    // Register user
+    // REGISTER user
     if (data.type === "REGISTER") {
       clients.set(data.userId, ws);
       console.log(`✅ User online: ${data.userId}`);
@@ -54,17 +54,19 @@ wss.on("connection", (ws) => {
       const { fromUserId, toUserId } = data;
 
       try {
-        // Check if they are friends
+        // Check friendship bidirectionally
         const friendship = await Friend.findOne({
           $or: [
             { userId: fromUserId, friendId: toUserId },
             { userId: toUserId, friendId: fromUserId },
           ],
-        });
+        }).lean();
 
         if (!friendship) {
-          console.log(`❌ Users ${fromUserId} and ${toUserId} are not friends. Message blocked.`);
-          return; // don't forward
+          console.log(
+            `❌ Users ${fromUserId} and ${toUserId} are not friends. Message blocked.`
+          );
+          return; // Block non-friend messages
         }
 
         // Send to recipient if online
@@ -76,7 +78,6 @@ wss.on("connection", (ws) => {
         if (clients.has(fromUserId)) {
           clients.get(fromUserId).send(JSON.stringify(data));
         }
-
       } catch (err) {
         console.error("Error checking friendship:", err);
       }
