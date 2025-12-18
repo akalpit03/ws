@@ -57,8 +57,8 @@ wss.on("connection", (ws) => {
         // Check friendship bidirectionally
         const friendship = await Friend.findOne({
           $or: [
-            { userId: fromUserId, friendId: toUserId },
-            { userId: toUserId, friendId: fromUserId },
+            { user: fromUserId, friend: toUserId },
+            { user: toUserId, friend: fromUserId },
           ],
         }).lean();
 
